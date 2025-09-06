@@ -92,61 +92,6 @@ RES5          = 128
 .org $0e ; Just to make listing.txt match
 userland:
 
-jsr setup_si5351   ; Initialize Si5351
-
-; Disable outputs
-lda #3 
-ldy #$ff    
-jsr i2c_write_register
-
-;jsr validate_si5351_init
-;
-;  lda #44
-;  jsr read_i2c_reg
-;  lda inb
-;  jsr serialbyte ; See what comes back
-; lda #$60
-; sta I2CADDR
-
-; lda #16
-; ldy #$0F
-; jsr i2c_write_register
-
-lda #45
-ldy #30
-jsr i2c_write_register
-
-lda #53
-ldy #30
-jsr i2c_write_register
-
- lda #166
- ldy #64
- jsr i2c_write_register
-
-    lda #29
-    ldy #12
-    jsr i2c_write_register
-
-
-
-; Reset PLLs
-  lda #177
-  ldy #$AC
-  jsr i2c_write_register
-
-
-; Enable available outputs
-lda #3 
-ldy #$f8
-jsr i2c_write_register
-
-here:
-jmp here
-
-; val = runpnt
-; reg = runpnt+1
-
 ;  validate_si5351_init:
 ;     lda #<si5351_init_data
 ;     sta ptr
@@ -262,10 +207,10 @@ jmp here
 ; phase_hi:     .res 1
 
 halt:
-;lda #$02 ; Bit 1 is serial TX (Output)
-;sta DDRA
-;sty mode
-;jmp main ; Get ready for new code
+lda #$02 ; Bit 1 is serial TX (Output)
+sta DDRA
+sty mode
+jmp main ; Get ready for new code
 
 fifobuffer:
 ;.res 4
@@ -296,9 +241,9 @@ clearzp:
     JSR latchctrl  ; Call latchctrl subroutine to latch 0 into control register 
 .endif 
 
-    lda #%01010000  ; Initialize DRB with bit 4 and 6 set to 1, rest to 0
+    lda #%01000000  ; Initialize DRB with bit 6 set to 1, rest to 0
     sta DRB
-    lda #%10111100  ; Set B register direction: Bit 0, 1 are SCL and SDA, bit 6 is input button
+    lda #%10000000  ; Set B register direction: Bit 0, 1 are SCL and SDA, bit 6 is input button
     sta DDRB
 
     lda #%11111011  ; Set A register default - 
@@ -310,6 +255,13 @@ clearzp:
     lda #244
     jsr delay_long   ; Delay for a short time
 
+    lda #$60      ; Check for PhaseLoom (Si5351) - 0x60 is the default address
+    sta I2CADDR
+    jsr i2c_start
+    bcs normalboot ; If PhaseLoom is not present, continue to normal boot
+    jmp setup_sdr_mode ; If PhaseLoom is present, initialize it
+
+normalboot:    ; Initialize SSD1306 display
     lda #$3C      ; Address of the device (78 on the back of the module is 3C << 1)
     sta I2CADDR
     jsr ssd1306_init  ; Initialize SSD1306 display
